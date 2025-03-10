@@ -9,8 +9,6 @@ import (
 	"github.com/bsuvonov/gator/internal/config"
 	"github.com/bsuvonov/gator/internal/database"
 
-	// "github.com/bsuvonov/gator/internal/database"
-
 	_ "github.com/lib/pq"
 )
 
@@ -28,10 +26,12 @@ type command struct {
 
 type commands struct {
     handlers    map[string]func(*state, command) error
+    descriptions map[string]string
 }
 
-func (c *commands) register(name string, f func(*state, command) error) {
+func (c *commands) register(name string, f func(*state, command) error, description string) {
     c.handlers[name] = f
+    c.descriptions[name] = description
 }
 
 func (c *commands) run(s *state, cmd command) error {
@@ -44,6 +44,7 @@ func (c *commands) run(s *state, cmd command) error {
 
 
 
+
 func main() {
 	conf, err := config.ReadConfig()
     if err != nil {
@@ -52,16 +53,19 @@ func main() {
 
 
 
-    cmds := commands{make(map[string]func(*state, command) error)}
-    cmds.register("login", handlerLogin)
-    cmds.register("register", handlerRegister)
+    cmds := commands{make(map[string]func(*state, command) error), make(map[string]string)}
+    cmds.register("login", handlerLogin, "login to existing user")
+    cmds.register("register", handlerRegister, "register a new user")
+    cmds.register("reset", handlerReset, "reset users and their feeds")
+    cmds.register("users", handlerUsers, "list existing users")
+    cmds.register("agg", handlerAgg, "I don't know")
+    cmds.register("addfeed", handlerAddFeed, "add feed to current user")
+    cmds.register("feeds", handlerFeeds, "list all the feeds of current user")
 
     if len(os.Args) < 2 {
         fmt.Println("error: program must be called with at least one argument.")
         os.Exit(1)
     }
-
-    
 
 
     // Create db instance
@@ -85,9 +89,14 @@ func main() {
     }
     cmd := command{cmd_name, args}
 
-    err = cmds.run(&st, cmd)
-    if err != nil {
-        fmt.Println(err)
-        os.Exit(1)
+    if cmd_name == "help" {
+        handlerHelp(cmds)
+    } else {
+
+        err = cmds.run(&st, cmd)
+        if err != nil {
+            fmt.Println(err)
+            os.Exit(1)
+        }
     }
 }

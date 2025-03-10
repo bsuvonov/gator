@@ -2,18 +2,12 @@ package main
 
 import (
 	"context"
-	"fmt"
-	// "database/sql"
 	"errors"
-	// "fmt"
-	// "os"
+	"fmt"
 	"time"
 
-	// "github.com/bsuvonov/gator/internal/config"
 	"github.com/bsuvonov/gator/internal/database"
 	"github.com/google/uuid"
-
-	// "github.com/bsuvonov/gator/internal/database"
 
 	_ "github.com/lib/pq"
 )
@@ -59,3 +53,76 @@ func handlerRegister(s *state, cmd command) error {
 }
 
 
+func handlerReset(s *state, cmd command) error {
+	return s.db.ResetTable(context.Background())
+}
+
+func handlerUsers(s *state, cmd command) error {
+	names, err := s.db.GetUsers(context.Background())
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+
+		if s.conf.CurrentUserName != nil && name == *s.conf.CurrentUserName {
+			name += " (current)"
+		}
+		fmt.Println("* " + name)
+	}
+	return nil
+}
+
+
+func handlerAgg(s *state, cmd command) error {
+	feed, err := fetchFeed(context.Background(), "https://techcrunch.com/feed/")
+	fmt.Println(feed)
+	return err
+}
+
+
+func handlerAddFeed(s *state, cmd command) error {
+	if len(cmd.args) != 2 {
+		return errors.New("number of arguments to command 'addfeed' must be 4")
+	}
+
+	user, err := s.db.GetUser(context.Background(), *s.conf.CurrentUserName)
+	if err != nil {
+		return err
+	}
+
+	feed, err := s.db.InsertFeed(context.Background(), database.InsertFeedParams{ID: uuid.New(), CreatedAt: time.Now(), UpdatedAt: time.Now(), Name: cmd.args[0], Url: cmd.args[1], UserID: user.ID})
+	if err != nil {
+		return err
+	}
+	fmt.Println(feed)
+	return nil
+}
+
+
+func handlerFeeds(s *state, cmd command) error {
+	feeds, err := s.db.GetFeeds(context.Background())
+	if err != nil {
+		return err
+	}
+
+	for _, feed := range feeds {
+        fmt.Printf("* %-*s %-*s %-*s\n", 40, feed.Name, 50, feed.Url, 20, feed.Name_2)
+    }
+
+	return nil
+}
+
+
+func handlerHelp(cmds commands) error {
+	fmt.Println("Gator is a tool for managing Go source code.")
+	fmt.Println("\nUsage")
+	fmt.Printf("\n%-*s gator <command> [arguments]\n\n", 7, " ")
+	fmt.Println("The commands are:")
+	fmt.Println()
+
+	for cmd_name := range cmds.handlers {
+		fmt.Printf("%-*s %-*s %-*s\n", 7, " ", 15, cmd_name, 10, cmds.descriptions[cmd_name])
+	}
+	fmt.Println()
+	return nil
+}

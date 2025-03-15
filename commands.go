@@ -80,25 +80,6 @@ func handlerAgg(s *state, cmd command) error {
 }
 
 
-func handlerAddFeed(s *state, cmd command) error {
-	if len(cmd.args) != 2 {
-		return errors.New("number of arguments to command 'addfeed' must be 4")
-	}
-
-	user, err := s.db.GetUser(context.Background(), *s.conf.CurrentUserName)
-	if err != nil {
-		return err
-	}
-
-	feed, err := s.db.InsertFeed(context.Background(), database.InsertFeedParams{ID: uuid.New(), CreatedAt: time.Now(), UpdatedAt: time.Now(), Name: cmd.args[0], Url: cmd.args[1], UserID: user.ID})
-	if err != nil {
-		return err
-	}
-	fmt.Println(feed)
-	return nil
-}
-
-
 func handlerFeeds(s *state, cmd command) error {
 	feeds, err := s.db.GetFeeds(context.Background())
 	if err != nil {
@@ -106,15 +87,94 @@ func handlerFeeds(s *state, cmd command) error {
 	}
 
 	for _, feed := range feeds {
-        fmt.Printf("* %-*s %-*s %-*s\n", 40, feed.Name, 50, feed.Url, 20, feed.Name_2)
+        fmt.Printf("* %-*s %-*s %-*s\n", 20, feed.Name, 50, feed.Url, 0, feed.Name_2)
     }
 
 	return nil
 }
 
 
+func handlerAddFeed(s *state, cmd command, user database.User) error {
+	if len(cmd.args) != 2 {
+		return errors.New("number of arguments to command 'addfeed' must be 2")
+	}
+
+	feed, err := s.db.InsertFeed(context.Background(), database.InsertFeedParams{ID: uuid.New(), CreatedAt: time.Now(), UpdatedAt: time.Now(), Name: cmd.args[0], Url: cmd.args[1], UserID: user.ID})
+	if err != nil {
+		return err
+	}
+	_, err = s.db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{ID: uuid.New(), CreatedAt: time.Now(), UpdatedAt: time.Now(), UserID: user.ID , FeedID: feed.ID})
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(feed)
+	return nil
+}
+
+
+func handlerFollow(s *state, cmd command, user database.User) error {
+	if len(cmd.args) != 1 {
+		return errors.New("number of arguments to command 'addfeed' must be 1")
+	}
+	feed_id, err := s.db.GetFeedIdByUrl(context.Background(), cmd.args[0])
+	if err!=nil {
+		return err
+	}
+
+	queries, err := s.db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{ID: uuid.New(), CreatedAt: time.Now(), UpdatedAt: time.Now(), UserID: user.ID , FeedID: feed_id})
+	if err != nil {
+		return err
+	}
+	for _, query := range queries {
+		if query.UserID == user.ID && query.FeedID == feed_id {
+			fmt.Printf("* %-*s %-*s\n", 20, query.FeedName, 0, query.UserName)
+		}
+	}
+
+	return nil
+}
+
+
+func handlerUnfollow(s *state, cmd command, user database.User) error {
+	if len(cmd.args) != 1 {
+		return errors.New("number of arguments to command 'unfollow' must be 1")
+	}
+	err := s.db.DeleteFeedFollow(context.Background(), user.ID)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+
+func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) error) func(*state, command) error {
+    return func(s *state, cmd command) error {
+        user, err := s.db.GetUser(context.Background(), *s.conf.CurrentUserName)
+        if err != nil {
+            return err
+        }
+
+        return handler(s, cmd, user)
+    }
+}
+
+
+func handlerFollowing(s *state, cmd command) error {
+	feed_names, err := s.db.GetFeedFollowsForUser(context.Background(), *s.conf.CurrentUserName)
+	if err != nil {
+		return err
+	}
+
+	for _, feed_name := range feed_names {
+		fmt.Printf("* %-*s %-*s\n", 20, feed_name, 0, *s.conf.CurrentUserName)
+	}
+	return nil
+}
+
+
 func handlerHelp(cmds commands) error {
-	fmt.Println("Gator is a tool for managing Go source code.")
+	fmt.Println("Gator is a tool for aggregating RSS feeds.")
 	fmt.Println("\nUsage")
 	fmt.Printf("\n%-*s gator <command> [arguments]\n\n", 7, " ")
 	fmt.Println("The commands are:")

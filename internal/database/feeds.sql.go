@@ -12,6 +12,17 @@ import (
 	"github.com/google/uuid"
 )
 
+const getFeedIdByUrl = `-- name: GetFeedIdByUrl :one
+SELECT id FROM feeds where url = $1
+`
+
+func (q *Queries) GetFeedIdByUrl(ctx context.Context, url string) (uuid.UUID, error) {
+	row := q.db.QueryRowContext(ctx, getFeedIdByUrl, url)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getFeeds = `-- name: GetFeeds :many
 SELECT feeds.name, url, users.name from feeds inner join users on feeds.user_id = users.id
 `

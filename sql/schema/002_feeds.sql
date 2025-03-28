@@ -11,5 +11,8 @@ CREATE TABLE feeds (
     ON DELETE CASCADE
 );
 
+-- +goose Up
+ALTER TABLE feeds ADD COLUMN last_fetched_at TIMESTAMP NULL;
+
 -- +goose Down
 DROP TABLE feeds;

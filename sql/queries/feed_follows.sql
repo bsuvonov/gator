@@ -16,7 +16,16 @@ WITH userid AS (
 feed_ids AS (
     SELECT feed_id FROM feed_follows WHERE user_id = (SELECT id FROM userid)
 )
-SELECT feeds.name FROM feeds WHERE feeds.id IN (SELECT feed_id FROM feed_ids);
+SELECT feeds.name, feeds.url, feeds.updated_at FROM feeds WHERE feeds.id IN (SELECT feed_id FROM feed_ids);
 
 -- name: DeleteFeedFollow :exec
 DELETE FROM feed_follows WHERE user_id = $1;
+
+-- name: GetNextFeedToFetch :one
+WITH userid AS (
+    SELECT id FROM users where users.name = $1
+),
+feed_ids AS (
+    SELECT feed_id FROM feed_follows WHERE user_id = (SELECT id FROM userid)
+)
+SELECT feeds.name, feeds.url FROM feeds WHERE feeds.id IN (SELECT feed_id FROM feed_ids) ORDER BY last_fetched_at DESC NULLS FIRST LIMIT 1;

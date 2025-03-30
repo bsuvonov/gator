@@ -58,12 +58,13 @@ func main() {
     cmds.register("register", handlerRegister, "register a new user")
     cmds.register("reset", handlerReset, "reset users and their feeds")
     cmds.register("users", handlerUsers, "list existing users")
-    cmds.register("agg", handlerAgg, "I don't know")
+    cmds.register("agg", handlerAgg, "aggregate posts from followed feeds and store them in database")
     cmds.register("addfeed", middlewareLoggedIn(handlerAddFeed), "add feed to current user")
     cmds.register("feeds", handlerFeeds, "list all created feeds")
     cmds.register("follow", middlewareLoggedIn(handlerFollow), "follow a feed")
     cmds.register("unfollow", middlewareLoggedIn(handlerUnfollow), "unfollow a feed")
     cmds.register("following", handlerFollowing, "list all feeds followed by current users")
+    cmds.register("browse", handlerBrowse, "browse aggregated recent posts from feeds")
 
     if len(os.Args) < 2 {
         fmt.Println("error: program must be called with at least one argument.")

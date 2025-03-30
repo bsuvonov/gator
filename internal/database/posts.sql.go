@@ -70,7 +70,7 @@ WITH userid AS (
 feed_ids AS (
     SELECT feed_id FROM feed_follows WHERE user_id = (SELECT id FROM userid)
 )
-SELECT title, url, description, published_at FROM posts WHERE id IN (SELECT f_id FROM feed_ids) ORDER BY updated_at ASC LIMIT $2
+SELECT title, url, description, published_at FROM posts WHERE feed_id IN (SELECT feed_id FROM feed_ids) ORDER BY updated_at ASC LIMIT $2
 `
 
 type GetPostsForUserParams struct {

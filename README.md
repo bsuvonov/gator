@@ -115,6 +115,3 @@ This application uses PostgreSQL with the following main tables:
 - `feeds`: Stores added RSS feeds.
 - `feed_follows`: Tracks which users follow which feeds.
 - `posts`: Stores posts from feeds.
-
-## License
-This project is open-source and available under the MIT License.

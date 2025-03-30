@@ -28,4 +28,4 @@ WITH userid AS (
 feed_ids AS (
     SELECT feed_id FROM feed_follows WHERE user_id = (SELECT id FROM userid)
 )
-SELECT feeds.name, feeds.url FROM feeds WHERE feeds.id IN (SELECT feed_id FROM feed_ids) ORDER BY last_fetched_at DESC NULLS FIRST LIMIT 1;
+SELECT feeds.id, feeds.name, feeds.url FROM feeds WHERE feeds.id IN (SELECT feed_id FROM feed_ids) ORDER BY last_fetched_at ASC NULLS FIRST LIMIT 1;

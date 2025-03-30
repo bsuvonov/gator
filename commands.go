@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
+
+	"database/sql"
 
 	"github.com/bsuvonov/gator/internal/database"
 	"github.com/google/uuid"
-	"database/sql"
 
 	_ "github.com/lib/pq"
 )
@@ -125,6 +127,30 @@ func handlerAgg(s *state, cmd command) error {
 		if err != nil {
 			return err
 		}
+	}
+}
+
+
+func handlerBrowse(s *state, cmd command) error {
+	limit := 5
+	if len(cmd.args) == 1 {
+		var err error
+		limit, err = strconv.Atoi(cmd.args[0])
+		if err != nil {
+			return err
+		}
+	}
+
+	posts, err := s.db.GetPostsForUser(context.Background(), database.GetPostsForUserParams{Name: *s.conf.CurrentUserName, Limit: int32(limit)})
+	if err != nil {
+		return err
+	}
+
+	for _, post := range posts {
+		fmt.Println("Title:", post.Title)
+		fmt.Println("Published:", post.PublishedAt.Local().String())
+		fmt.Println("URL:", post.Url)
+		fmt.Println()
 	}
 
 	return nil

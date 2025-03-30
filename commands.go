@@ -217,7 +217,11 @@ func handlerUnfollow(s *state, cmd command, user database.User) error {
 	if len(cmd.args) != 1 {
 		return errors.New("number of arguments to command 'unfollow' must be 1")
 	}
-	err := s.db.DeleteFeedFollow(context.Background(), user.ID)
+	feed_id, err := s.db.GetFeedIdByUrl(context.Background(), cmd.args[0])
+	if err != nil {
+		return err
+	}
+	err = s.db.DeleteFeedFollow(context.Background(), database.DeleteFeedFollowParams{UserID: user.ID, FeedID: feed_id})
 	if err != nil {
 		return err
 	}

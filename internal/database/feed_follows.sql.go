@@ -95,22 +95,28 @@ WITH userid AS (
 feed_ids AS (
     SELECT feed_id FROM feed_follows WHERE user_id = (SELECT id FROM userid)
 )
-SELECT feeds.name FROM feeds WHERE feeds.id IN (SELECT feed_id FROM feed_ids)
+SELECT feeds.name, feeds.url, feeds.updated_at FROM feeds WHERE feeds.id IN (SELECT feed_id FROM feed_ids)
 `
 
-func (q *Queries) GetFeedFollowsForUser(ctx context.Context, name string) ([]string, error) {
+type GetFeedFollowsForUserRow struct {
+	Name      string
+	Url       string
+	UpdatedAt time.Time
+}
+
+func (q *Queries) GetFeedFollowsForUser(ctx context.Context, name string) ([]GetFeedFollowsForUserRow, error) {
 	rows, err := q.db.QueryContext(ctx, getFeedFollowsForUser, name)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []string
+	var items []GetFeedFollowsForUserRow
 	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err != nil {
+		var i GetFeedFollowsForUserRow
+		if err := rows.Scan(&i.Name, &i.Url, &i.UpdatedAt); err != nil {
 			return nil, err
 		}
-		items = append(items, name)
+		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -119,4 +125,27 @@ func (q *Queries) GetFeedFollowsForUser(ctx context.Context, name string) ([]str
 		return nil, err
 	}
 	return items, nil
+}
+
+const getNextFeedToFetch = `-- name: GetNextFeedToFetch :one
+WITH userid AS (
+    SELECT id FROM users where users.name = $1
+),
+feed_ids AS (
+    SELECT feed_id FROM feed_follows WHERE user_id = (SELECT id FROM userid)
+)
+SELECT feeds.id, feeds.name, feeds.url FROM feeds WHERE feeds.id IN (SELECT feed_id FROM feed_ids) ORDER BY last_fetched_at ASC NULLS FIRST LIMIT 1
+`
+
+type GetNextFeedToFetchRow struct {
+	ID   uuid.UUID
+	Name string
+	Url  string
+}
+
+func (q *Queries) GetNextFeedToFetch(ctx context.Context, name string) (GetNextFeedToFetchRow, error) {
+	row := q.db.QueryRowContext(ctx, getNextFeedToFetch, name)
+	var i GetNextFeedToFetchRow
+	err := row.Scan(&i.ID, &i.Name, &i.Url)
+	return i, err
 }

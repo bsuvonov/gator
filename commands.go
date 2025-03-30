@@ -8,6 +8,7 @@ import (
 
 	"github.com/bsuvonov/gator/internal/database"
 	"github.com/google/uuid"
+	"database/sql"
 
 	_ "github.com/lib/pq"
 )
@@ -16,7 +17,7 @@ import (
 
 func handlerLogin(s *state, cmd command) error {
     if len(cmd.args) == 0 || len(cmd.args) > 1 {
-        return errors.New("`login` handler expects a single argument - the username")
+        return errors.New("`login` command expects a single argument - the username")
     }
 	name := cmd.args[0]
 
@@ -32,7 +33,7 @@ func handlerLogin(s *state, cmd command) error {
 
 func handlerRegister(s *state, cmd command) error {
 	if len(cmd.args) == 0 || len(cmd.args) > 1 {
-		return errors.New("`register` handler expects a single argument - the username")
+		return errors.New("`register` command expects a single argument - the username")
     }
 
 	name := cmd.args[0]
@@ -73,10 +74,60 @@ func handlerUsers(s *state, cmd command) error {
 }
 
 
+func scrapeFeeds(s *state) error {
+	
+	feedToBeFetched, err := s.db.GetNextFeedToFetch(context.Background(), *s.conf.CurrentUserName)
+	if err != nil {
+		return err
+	}
+
+	feedFetched, err := fetchFeed(context.Background(), feedToBeFetched.Url)
+	if err != nil {
+		return err
+	}
+
+	for _, item := range feedFetched.Channel.Items {
+		layout := "Mon, 02 Jan 2006 15:04:05 -0700"
+
+		parsedTime, err := time.Parse(layout, item.PubDate)
+		if err != nil {
+			return err
+		}
+		_, err = s.db.CreatePost(context.Background(), database.CreatePostParams{ID: uuid.New(), CreatedAt: time.Now(), UpdatedAt: time.Now(), Title: item.Title, Url: item.Link, Description: item.Description, PublishedAt: parsedTime, FeedID: feedToBeFetched.ID})
+		if err != nil {
+			if err.Error() == "pq: duplicate key value violates unique constraint \"posts_url_key\"" {
+				continue
+			}
+			return err
+		}
+	}
+
+	s.db.MarkFeedFetched(context.Background(), database.MarkFeedFetchedParams{ID: feedToBeFetched.ID, LastFetchedAt: sql.NullTime{Time: time.Now(), Valid: true}})
+
+	return nil
+}
+
+
 func handlerAgg(s *state, cmd command) error {
-	feed, err := fetchFeed(context.Background(), "https://techcrunch.com/feed/")
-	fmt.Println(feed)
-	return err
+	if len(cmd.args) != 1 {
+		return errors.New("number of arguments to command 'addfeed' must be 1")
+	}
+
+	interval, err := time.ParseDuration(cmd.args[0])
+	if err != nil {
+		return err
+	}
+	fmt.Println("Collecting feeds every", interval.String())
+
+	ticker := time.NewTicker(interval)
+	for ; ; <-ticker.C {
+		err = scrapeFeeds(s)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 
@@ -115,7 +166,7 @@ func handlerAddFeed(s *state, cmd command, user database.User) error {
 
 func handlerFollow(s *state, cmd command, user database.User) error {
 	if len(cmd.args) != 1 {
-		return errors.New("number of arguments to command 'addfeed' must be 1")
+		return errors.New("number of arguments to command 'follow' must be 1")
 	}
 	feed_id, err := s.db.GetFeedIdByUrl(context.Background(), cmd.args[0])
 	if err!=nil {
@@ -161,13 +212,13 @@ func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) 
 
 
 func handlerFollowing(s *state, cmd command) error {
-	feed_names, err := s.db.GetFeedFollowsForUser(context.Background(), *s.conf.CurrentUserName)
+	feeds, err := s.db.GetFeedFollowsForUser(context.Background(), *s.conf.CurrentUserName)
 	if err != nil {
 		return err
 	}
 
-	for _, feed_name := range feed_names {
-		fmt.Printf("* %-*s %-*s\n", 20, feed_name, 0, *s.conf.CurrentUserName)
+	for _, feed := range feeds {
+		fmt.Printf("* %-*s %-*s\n", 20, feed.Name, 0, *s.conf.CurrentUserName)
 	}
 	return nil
 }

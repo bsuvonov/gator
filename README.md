@@ -27,7 +27,7 @@ cd gator
 ### Set Up Environment Variables
 Create a configuration file in your home directory:
 ```sh
-touch ~/.gatorconfig.json
+touch ./.gatorconfig.json
 ```
 Edit the file and add:
 ```json
